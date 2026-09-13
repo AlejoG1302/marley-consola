@@ -1,0 +1,6 @@
+# capturas de verificación y borrador del video demo: no son parte del prototipo
+.capturas/
+demo-video/
+node_modules/
+.DS_Store
+Thumbs.db
