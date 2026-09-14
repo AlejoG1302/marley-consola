@@ -74,6 +74,9 @@
   const DIAS_SEM = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
   const diaCorto = (d) => DIAS_SEM[d.getDay()] + ' ' + d.getDate();
   const franjaTexto = (f) => f.replace('–', ' y las ');
+  const diaSemana = (d) => d.toLocaleDateString('es-CL', { weekday: 'long' });                          // 'jueves'
+  const diaLargo = (d) => diaSemana(d) + ' ' + d.getDate();                                             // 'jueves 17'
+  const horaDicha = (f) => 'Entre ' + [f.slice(0, 2), f.slice(6, 8)].map((h) => (+h > 12 ? h - 12 : +h)).join(' y ');   // '12:00–15:00' → 'Entre 12 y 3'
   // agenda de repartos y mantenciones por local (sólo existe en el piloto, porque requiere WhatsApp)
   const agendaDe = {};
   M.agenda.forEach((a) => { (agendaDe[a.punto] = agendaDe[a.punto] || []).push(a); });
@@ -193,21 +196,26 @@
         if (e.que === 'aviso') {
           msgs.push({ de: 'bot', proactivo: true, t: e.t, txt: rep
             ? `Hola ${nombre} 👋 Se acerca tu fecha de reparto. ¿Te gustaría programar tu pedido de siempre?`
-            : `Hola ${nombre} 👋 A tu máquina ${p.maquina} le toca su mantención preventiva. ¿Qué día te acomoda que vaya el técnico?`,
-            botones: [diaCorto(a.propuesta) + ' · ' + a.franja, 'Otro día', rep ? 'Todavía no' : 'Más adelante'] });
+            : `Hola ${nombre} 👋 A tu máquina ${p.maquina} le toca su mantención preventiva. ¿Qué día te acomoda que vaya el técnico?` });
         } else if (e.que === 'programo') {
+          // el cliente conversa como persona: pregunta por un día y el bot le pide el horario
           const f = a.antes || a.fecha;
-          msgs.push({ de: 'cliente', t: e.t, txt: diaCorto(f) + ' · ' + a.franja });
-          msgs.push({ de: 'bot', t: luego, txt: `Listo ✅ ${rep ? 'Tu pedido llega' : 'El técnico va'} el ${fechaLarga(f)} entre las ${franjaTexto(a.franja)}. Te recuerdo el día anterior y, si tienes un imprevisto, lo cambiamos.` });
+          msgs.push({ de: 'cliente', t: e.t, txt: rep ? `Sí, ¿tienen despacho el ${diaSemana(f)}?` : `¿Puede venir el ${diaSemana(f)}?` });
+          msgs.push({ de: 'bot', t: enHoras(e.t, 0.01), txt: 'Sí, ¿en qué horario te acomoda?' });
+          msgs.push({ de: 'cliente', t: enHoras(e.t, 0.03), txt: horaDicha(a.franja) });
+          msgs.push({ de: 'bot', t: enHoras(e.t, 0.04), txt: `Listo ✅ ${rep ? 'Tu pedido llega' : 'El técnico va'} el ${diaLargo(f)} entre las ${franjaTexto(a.franja)}. Si te surge un imprevisto, me avisas y lo cambiamos.` });
         } else if (e.que === 'reagendo') {
+          // Marley no elige la nueva fecha: pregunta y reagenda según la disponibilidad del cliente
           msgs.push({ de: 'cliente', t: e.t, txt: 'Tuve un imprevisto y ese día no voy a estar en el local, ¿lo podemos mover?' });
-          msgs.push({ de: 'bot', t: luego, txt: `Sin problema. Quedó reagendado para el ${fechaLarga(a.fecha)} entre las ${franjaTexto(a.franja)} ✅` });
+          msgs.push({ de: 'bot', t: enHoras(e.t, 0.02), txt: 'Sin problema. Coméntame cuándo puedes para reagendarlo.' });
+          msgs.push({ de: 'cliente', t: enHoras(e.t, 0.05), txt: `El ${diaLargo(a.fecha)}, a la misma hora` });
+          msgs.push({ de: 'bot', t: enHoras(e.t, 0.06), txt: `Listo ✅ Quedó reagendado para el ${diaLargo(a.fecha)} entre las ${franjaTexto(a.franja)}.` });
         } else if (e.que === 'cancelo') {
           msgs.push({ de: 'cliente', t: e.t, txt: 'Todavía me queda café, mejor lo cancelamos por ahora' });
           msgs.push({ de: 'bot', t: luego, txt: `Listo, lo cancelé. Te vuelvo a escribir el ${fechaLarga(a.nuevoAviso)}.` });
         } else if (e.que === 'recordatorio') {
           msgs.push({ de: 'bot', proactivo: true, t: e.t, txt: `Recordatorio: mañana ${rep ? 'llega tu pedido' : 'va el técnico'} entre las ${franjaTexto(a.franja)}. ¿Sigue bien?`, botones: ['Confirmar', 'Reagendar', 'Cancelar'] });
-          msgs.push({ de: 'cliente', t: enHoras(e.t, 0.3), txt: 'Confirmar' });
+          msgs.push({ de: 'cliente', t: enHoras(e.t, 0.3), txt: 'Sí, perfecto' });
         }
       });
       if (a.estado === 'Por confirmar') sinRespuesta = true;
