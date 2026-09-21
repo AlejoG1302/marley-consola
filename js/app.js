@@ -280,9 +280,21 @@
   // ================================================================
   //  RESUMEN
   // ================================================================
-  function tarjetaOp(titulo, valor, ref, href) {
-    const cuerpo = `<h3>${titulo}</h3><div class="op-valor">${valor}</div><div class="op-ref">${ref}</div>`;
+  function tarjetaOp(titulo, valor, ref, href, d) {
+    // cada cifra dice contra qué se compara y adónde lleva: un número suelto no se puede leer
+    const cuerpo = `<h3>${titulo}</h3><div class="op-valor">${valor}</div>${d ? `<div class="op-dif d-${d.estado}">${d.txt}</div>` : ''}<div class="op-ref">${ref}</div>${href ? '<span class="op-ver">Ver el detalle →</span>' : ''}`;
     return href ? `<a class="card card-link" href="${href}">${cuerpo}</a>` : `<article class="card">${cuerpo}</article>`;
+  }
+
+  // compara un indicador con su referencia y dice si está mejor o peor que ella
+  function dif(v, ref, dec, unidad, mejorEsMenor, refTxt) {
+    if (v == null || !isFinite(v)) return null;
+    const n = (x) => x.toFixed(dec).replace('.', ',');
+    const r = refTxt || n(ref);
+    const d = v - ref;
+    if (Math.abs(d) < Math.pow(10, -dec) / 2) return { estado: 'bien', txt: `Igual que la referencia ${r}` };
+    const peor = mejorEsMenor ? d > 0 : d < 0;
+    return { estado: peor ? 'mal' : 'bien', txt: `${d > 0 ? '▲' : '▼'} ${n(Math.abs(d))} ${unidad} ${d > 0 ? 'sobre' : 'bajo'} la referencia ${r}` };
   }
 
   function graficoCanales(pts) {
@@ -316,10 +328,41 @@
       <td class="num">${num(r.rojo + r.amarillo)}</td></tr>`).join('')}</tbody></table>`;
   }
 
+  // titular del Resumen: qué hay que hacer hoy, no solo cuántos locales hay de cada color
+  function bloqueEstado(k, piloto) {
+    const porAtender = k.cuenta.rojo + k.cuenta.amarillo;
+    const estado = k.cuenta.rojo ? 'mal' : porAtender ? 'medio' : 'bien';
+    const titular = k.cuenta.rojo
+      ? `Hay ${num(porAtender)} ${porAtender === 1 ? 'local que atender' : 'locales que atender'} hoy`
+      : porAtender
+        ? `Hay ${num(porAtender)} ${porAtender === 1 ? 'local en observación' : 'locales en observación'}`
+        : 'La red está sana hoy';
+    const evaluables = k.total - k.gris;
+    const detalle = [
+      k.cuenta.rojo ? `<b>${num(k.cuenta.rojo)}</b> en rojo` : '',
+      k.cuenta.amarillo ? `<b>${num(k.cuenta.amarillo)}</b> en amarillo` : '',
+      `<b>${num(k.cuenta.verde)}</b> en verde`,
+    ].filter(Boolean).join(' · ');
+    return `<section class="card estado e-${estado}">
+      <div class="estado-txt">
+        <span class="estado-etq">Estado de la red · ${piloto ? 'piloto' : 'red completa'}</span>
+        <h2>${titular}</h2>
+        <p>${detalle}, sobre ${num(evaluables)} locales evaluables${k.pendientes
+          ? ` · <b>${num(k.pendientes)}</b> sin acción registrada`
+          : ' · todas las alertas gestionadas'}${!piloto && k.gris ? ` · ${num(k.gris)} sin ficha para evaluar` : ''}.</p>
+      </div>
+      <div class="estado-acc">
+        <a class="btn" href="#/hoy">${k.pendientes ? `Atender ${num(k.pendientes)} pendientes` : 'Ver la cola de hoy'}</a>
+        <span class="estado-escala">Verde 0–${M.umbrales.amarillo - 1} pts · Amarillo ${M.umbrales.amarillo}–${M.umbrales.rojo - 1} · Rojo ${M.umbrales.rojo}+ · <a href="#/reglas">cómo se calcula</a></span>
+      </div>
+    </section>`;
+  }
+
   function vResumen() {
     const k = kpis();
     const piloto = S.alcance === 'piloto';
     return `
+    ${bloqueEstado(k, piloto)}
     <section class="grid g-sem">
       <article class="card">
         <h3>Semáforo hoy · ${piloto ? 'piloto' : 'red completa'}</h3>
@@ -347,10 +390,10 @@
 
     <h2 class="seccion">Operación <span>últimos 90 días · ${num(k.nPed)} pedidos</span></h2>
     <section class="grid g-op">
-      ${tarjetaOp('Cumplimiento OTIF', pct(k.otif), 'Referencia <b>92%</b> · meta <b>96%</b>', '#/despachos')}
-      ${tarjetaOp('Reclamos por 100 pedidos', k.reclamos.toFixed(1).replace('.', ','), 'Referencia <b>2,8</b>', '#/pedidos')}
-      ${tarjetaOp('Primera respuesta técnica', k.respuesta ? Math.round(k.respuesta) + ' h' : '—', 'Referencia <b>31 h</b> promedio', '#/tecnico')}
-      ${tarjetaOp('Quiebres de stock OCS · 30 días', k.nOcs ? pct(k.quiebres, 1) : '—', 'Referencia <b>6,8%</b> mensual · meta <b>−30%</b>', '#/despachos')}
+      ${tarjetaOp('Cumplimiento OTIF', pct(k.otif), `Referencia <b>92%</b> · meta <b>96%</b> · sobre ${num(k.nPed)} pedidos`, '#/despachos', dif(k.otif * 100, 92, 1, 'pts', false, '92%'))}
+      ${tarjetaOp('Reclamos por 100 pedidos', k.reclamos.toFixed(1).replace('.', ','), `Referencia <b>2,8</b> · sobre ${num(k.nPed)} pedidos`, '#/tecnico', dif(k.reclamos, 2.8, 1, 'reclamos', true))}
+      ${tarjetaOp('Primera respuesta técnica', k.respuesta ? Math.round(k.respuesta) + ' h' : '—', 'Referencia <b>31 h</b> promedio', '#/tecnico', k.respuesta ? dif(k.respuesta, 31, 0, 'h', true, '31 h') : null)}
+      ${tarjetaOp('Quiebres de stock OCS · 30 días', k.nOcs ? pct(k.quiebres, 1) : '—', `Referencia <b>6,8%</b> mensual · meta <b>−30%</b> · sobre ${num(k.nOcs)} locales OCS`, '#/despachos', k.nOcs ? dif(k.quiebres * 100, 6.8, 1, 'pts', true, '6,8%') : null)}
     </section>
 
     <section class="grid g-graf">
@@ -747,6 +790,10 @@
     const resueltos = d90.filter((i) => i.estado === 'Resuelto');
     const conRespuesta = d90.filter((i) => i.horasRespuesta != null);
     const d180 = tickets.filter((i) => M.diasDesde(i.fecha) <= 180);
+    // reclamos y quiebres: no son tickets técnicos, pero alimentan el semáforo y hay que poder verlos
+    const otras = k.pts.flatMap((p) => M.incidenciasDe[p.id])
+      .filter((i) => !esFalla(i) && M.diasDesde(i.fecha) <= 90)
+      .sort((a, b) => b.fecha - a.fecha);
     const LIM = 30;
 
     // salud del parque: una máquina por local, fallas de los últimos 6 meses
@@ -806,6 +853,21 @@
       }).join('') || '<tr><td colspan="7" class="vacio">No hay tickets abiertos.</td></tr>'}</tbody>
     </table></div>
     ${abiertos.length > LIM ? `<p class="mas">y ${num(abiertos.length - LIM)} tickets más</p>` : ''}
+
+    <h2 class="seccion">Reclamos y quiebres <span>últimos 90 días · ${num(otras.length)} incidencias · ${k.reclamos.toFixed(1).replace('.', ',')} reclamos por 100 pedidos</span></h2>
+    <div class="card tabla-wrap" style="padding:6px 8px"><table class="tabla-id">
+      <thead><tr><th>Incidencia</th><th>Local</th><th>Tipo</th><th>Detalle</th><th>Cuándo</th></tr></thead>
+      <tbody>${otras.slice(0, LIM).map((i) => {
+        const p = M.porId[i.punto];
+        return `<tr data-href="#/local/${p.id}">
+          <td>${i.id}</td>
+          <td><span class="nombre-local">${esc(p.nombre)}</span><small>${p.canal} · ${esc(p.comuna)}</small></td>
+          <td>${i.tipo}</td>
+          <td>${esc(i.detalle)}</td>
+          <td>${fecha(i.fecha)}<small>hace ${num(M.diasDesde(i.fecha))} días</small></td></tr>`;
+      }).join('') || '<tr><td colspan="5" class="vacio">Sin reclamos ni quiebres en los últimos 90 días.</td></tr>'}</tbody>
+    </table></div>
+    ${otras.length > LIM ? `<p class="mas">y ${num(otras.length - LIM)} incidencias más</p>` : ''}
 
     <section class="grid g-graf">
       <article class="card"><h3>Medición mensual · últimos 6 meses</h3>

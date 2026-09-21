@@ -248,6 +248,27 @@ tr.habitual td { background: #F4F8EC; font-weight: 700; }
 .mini-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--linea-2); }
 .mini-kpis b { display: block; font-size: 22px; font-weight: 800; }
 .mini-kpis span { font-size: 12px; color: var(--suave); }
+
+/* ---------- resumen v3: estado de la red y lectura de cada cifra ---------- */
+.estado {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px;
+  border-left: 6px solid var(--gris); margin-bottom: 16px;
+}
+.estado.e-mal { border-left-color: var(--bad); }
+.estado.e-medio { border-left-color: var(--warn); }
+.estado.e-bien { border-left-color: var(--ok); }
+.estado-etq { font-size: 11.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--suave); font-weight: 800; }
+.estado-txt h2 { font-family: 'Anton', Impact, sans-serif; font-size: 30px; line-height: 1.08; margin: 6px 0 5px; }
+.estado-txt p { margin: 0; color: var(--suave); font-size: 13.5px; }
+.estado-txt p b { color: var(--tinta); }
+.estado-acc { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.estado-escala { font-size: 12px; color: var(--suave); }
+.op-dif { font-size: 12.5px; font-weight: 700; margin-top: 6px; }
+.op-dif.d-mal { color: var(--bad); }
+.op-dif.d-bien { color: var(--ok); }
+.op-ver { display: block; font-size: 12px; color: var(--suave-2); font-weight: 700; margin-top: 10px; }
+.card-link:hover .op-ver { color: var(--tinta); }
+
 .nav-grupo { display: block; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: #77726A; padding: 18px 12px 6px; }
 
 /* ---------- reglas v2 ---------- */
